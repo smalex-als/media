@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / macOS
+.idea/
+.vscode/
+.DS_Store
+
+# Local tool settings (may hold machine-specific paths)
+.claude/settings.local.json
+
+# Downloads: never commit media that lands in the source tree by accident
+*.mp4
+*.webm
+*.mkv
+*.m4a
+*.original.*
