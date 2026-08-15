@@ -64,3 +64,18 @@ def reveal_in_finder(path) -> None:
         return
     with suppress(OSError, subprocess.SubprocessError):
         subprocess.run([executable, "-R", str(path)], capture_output=True, timeout=10, check=False)
+
+
+def open_path(path) -> bool:
+    """Hand a file to whatever app owns it. Returns False when `open` isn't there."""
+    executable = shutil.which("open")
+    if not executable:
+        return False
+    try:
+        result = subprocess.run(
+            [executable, str(path)], capture_output=True, timeout=10, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.debug("open failed: %s", exc)
+        return False
+    return result.returncode == 0

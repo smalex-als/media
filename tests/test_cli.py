@@ -165,6 +165,61 @@ def test_subcommands_are_still_reachable():
     assert runner.invoke(cli_module.app, ["doctor"]).exit_code in (0, 1)
     assert runner.invoke(cli_module.app, ["watch", "--help"]).exit_code == 0
     assert runner.invoke(cli_module.app, ["update", "--help"]).exit_code == 0
+    assert runner.invoke(cli_module.app, ["library", "--help"]).exit_code == 0
+
+
+def test_library_builds_a_page_and_opens_it(monkeypatch, tmp_path):
+    folder = tmp_path / "clips"
+    folder.mkdir()
+    (folder / "a.mp4").write_bytes(b"")
+    page = folder / "library.html"
+    opened: list = []
+
+    monkeypatch.setattr(cli_module.library, "candidates", lambda target: [folder / "a.mp4"])
+    monkeypatch.setattr(cli_module.library, "scan", lambda target, **kwargs: ["entry"])
+    monkeypatch.setattr(cli_module.library, "prune_cache", lambda target, entries: 0)
+    monkeypatch.setattr(cli_module.library, "build", lambda target, entries: page)
+    monkeypatch.setattr(cli_module, "open_path", lambda path: opened.append(path) or True)
+
+    result = runner.invoke(cli_module.app, ["library", str(folder)])
+
+    assert result.exit_code == 0
+    assert opened == [page]
+
+
+def test_library_without_videos_exits_nonzero(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli_module.library, "candidates", lambda target: [])
+
+    result = runner.invoke(cli_module.app, ["library", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "No videos" in result.output
+
+
+def test_library_reports_when_nothing_came_from_media(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli_module.library, "candidates", lambda target: [tmp_path / "a.mp4"])
+    monkeypatch.setattr(cli_module.library, "scan", lambda target, **kwargs: [])
+
+    result = runner.invoke(cli_module.app, ["library", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "--all" in result.output
+
+
+def test_library_no_open_leaves_the_browser_alone(monkeypatch, tmp_path):
+    page = tmp_path / "library.html"
+    opened: list = []
+
+    monkeypatch.setattr(cli_module.library, "candidates", lambda target: [tmp_path / "a.mp4"])
+    monkeypatch.setattr(cli_module.library, "scan", lambda target, **kwargs: ["entry"])
+    monkeypatch.setattr(cli_module.library, "prune_cache", lambda target, entries: 0)
+    monkeypatch.setattr(cli_module.library, "build", lambda target, entries: page)
+    monkeypatch.setattr(cli_module, "open_path", lambda path: opened.append(path) or True)
+
+    result = runner.invoke(cli_module.app, ["library", str(tmp_path), "--no-open"])
+
+    assert result.exit_code == 0
+    assert opened == []
 
 
 def test_help_and_version_are_not_swallowed_by_the_default_command():

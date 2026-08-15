@@ -12,13 +12,13 @@ from typing import Annotated
 import typer
 from typer.core import TyperGroup
 
-from . import __version__
+from . import __version__, library
 from .config import Config, ensure_config_file, load_config
 from .doctor import doctor, update
 from .errors import ConfigError, MediaError
 from .logs import setup_logging
 from .pipeline import DOWNLOADED, Pipeline, Report
-from .system import read_clipboard, reveal_in_finder
+from .system import open_path, read_clipboard, reveal_in_finder
 from .ui import Reporter
 from .urls import Target, find_supported, require
 from .watch import watch as watch_mode
@@ -176,6 +176,63 @@ def watch_command(
     report = watch_mode(cfg, reporter, output)
     if report.outcomes:
         reporter.summary(report.counts, report.failures)
+
+
+@app.command("library", help="Build a browsable HTML page of everything you've downloaded.")
+def library_command(
+    folder: Annotated[
+        Path | None,
+        typer.Argument(help="Folder to index. Defaults to your download folder.",
+                       show_default=False),
+    ] = None,
+    include_all: Annotated[
+        bool,
+        typer.Option("--all", help="Also include videos that have no media metadata."),
+    ] = False,
+    no_open: Annotated[
+        bool, typer.Option("--no-open", help="Write the page but don't open it.")
+    ] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose logging.")] = False,
+) -> None:
+    cfg, reporter = _bootstrap(quiet=False, verbose=verbose)
+    target = folder.expanduser().resolve() if folder else cfg.destination
+
+    try:
+        total = len(library.candidates(target))
+        if not total:
+            reporter.warn(f"No videos in {target}.")
+            raise typer.Exit(1)
+
+        with reporter.console.status("") as status:
+            entries = library.scan(
+                target,
+                include_untagged=include_all,
+                on_progress=lambda done, count, name: status.update(
+                    f"[muted]Reading {done}/{count} — {name[:52]}[/muted]"
+                ),
+            )
+        if not entries:
+            reporter.warn(f"None of the {total} video(s) in {target} came from media.")
+            reporter.console.print("  [muted]Use --all to list them anyway.[/muted]")
+            raise typer.Exit(1)
+
+        library.prune_cache(target, entries)
+        page = library.build(target, entries)
+    except MediaError as exc:
+        reporter.error(exc)
+        raise typer.Exit(2) from exc
+
+    skipped = total - len(entries)
+    reporter.result(
+        page.name,
+        [f"{len(entries)} video(s)"] + ([f"{skipped} skipped"] if skipped else []),
+    )
+    reporter.console.print(f"  [muted]{page}[/muted]")
+
+    if not no_open and not open_path(page):
+        reporter.warn("Could not open a browser — open the file above yourself.")
+
+    raise typer.Exit(0)
 
 
 @app.command("doctor", help="Check that ffmpeg, ffprobe and yt-dlp are ready.")

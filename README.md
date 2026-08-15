@@ -130,6 +130,28 @@ Monitors the clipboard and downloads any supported link the moment you copy it,
 with a Notification Centre banner when the file lands. The same URL is never
 downloaded twice in a session, and files that already exist are skipped.
 
+### Browsing what you've downloaded
+
+```bash
+media library
+```
+
+Builds `library.html` in your download folder and opens it: a grid of poster
+frames, with title, creator, date, resolution, codec and size read straight out
+of each file's own tags. Click any card to play it right there on the page;
+there's a search box and sorting by date, length, size, title or creator, plus a
+link back to the original Instagram/YouTube post.
+
+```bash
+media library ~/Downloads      # index some other folder
+media library --all            # include videos that media didn't download
+media library --no-open        # just write the file
+```
+
+Poster frames are cached in a `.media-library` folder next to the videos and are
+only re-cut when a file actually changes. The page is plain static HTML — rerun
+the command after downloading to refresh it.
+
 ### Maintenance
 
 ```bash
@@ -157,7 +179,8 @@ media config --edit
 `~/.config/media/config.toml` is created on first run:
 
 ```toml
-download_folder = "."
+download_folder = "."            # "." = wherever you ran the command; set a real path to keep
+                                 # everything in one place, e.g. "~/Movies/media"
 codec_preference = "auto"        # "auto" = best quality, convert after; "h264" = avoid converting
 convert_codecs = ["vp9", "av1"]  # add "hevc" to force H.264 for HEVC too
 encoder = "h264_videotoolbox"

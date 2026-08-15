@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -79,6 +79,8 @@ class MediaInfo:
     format_name: str
     video: VideoStream | None
     audio: AudioStream | None
+    # Container-level tags, lowercased keys: title, artist, date, comment, …
+    tags: dict[str, str] = field(default_factory=dict)
 
     @property
     def resolution(self) -> str:
@@ -211,6 +213,7 @@ def probe(path: Path) -> MediaInfo:
         format_name=str(fmt.get("format_name") or ""),
         video=video,
         audio=audio,
+        tags={str(k).lower(): str(v) for k, v in (fmt.get("tags") or {}).items()},
     )
 
 
