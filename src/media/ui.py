@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Lock
 
 from rich.console import Console
 from rich.progress import (
@@ -73,6 +74,11 @@ class ItemView:
 
     A task's total can't be reset back to "unknown" in rich, so each stage gets a
     freshly created task — that keeps the spinner honest between phases.
+
+    yt-dlp calls progress hooks from its fragment worker threads, so every method
+    that touches `task_id` holds the lock: recreating a task without it lets one
+    thread update an id another has just removed, which rich reports as a bare
+    KeyError.
     """
 
     progress: Progress | None
@@ -80,6 +86,8 @@ class ItemView:
     console: Console
     quiet: bool = False
     _total: float | None = None
+    _description: str = ""
+    _lock: Lock = field(default_factory=Lock, repr=False, compare=False)
 
     @property
     def active(self) -> bool:
@@ -87,33 +95,51 @@ class ItemView:
 
     def stage(self, key: str, detail: str = "") -> None:
         """Switch to an indeterminate phase such as probing or merging."""
-        self._replace(description=STAGES.get(key, key), total=None, detail=detail)
+        with self._lock:
+            self._replace(description=STAGES.get(key, key), total=None, detail=detail)
 
     def set_fraction(self, fraction: float, detail: str | None = None, key: str = "") -> None:
         """Update a 0..1 phase such as conversion."""
         if not self.active:
             return
-        if key:
-            self._replace(description=STAGES.get(key, key), total=100.0, detail=detail or "")
-            return
-        self.progress.update(  # type: ignore[union-attr]
-            self.task_id, completed=max(0.0, min(1.0, fraction)) * 100
-        )
-        if detail is not None:
-            self.progress.update(self.task_id, detail=detail)  # type: ignore[union-attr]
+        with self._lock:
+            if key:
+                self._replace(description=STAGES.get(key, key), total=100.0, detail=detail or "")
+                return
+            self.progress.update(  # type: ignore[union-attr]
+                self.task_id, completed=max(0.0, min(1.0, fraction)) * 100
+            )
+            if detail is not None:
+                self.progress.update(self.task_id, detail=detail)  # type: ignore[union-attr]
 
     def set_bytes(self, done: int, total: int, description: str, detail: str = "") -> None:
         """Update a byte-counted phase such as downloading."""
         if not self.active:
             return
         known_total = float(total) if total > 0 else None
-        if known_total is not None and known_total != self._total:
-            # A new file (video, then audio) — start a fresh bar for it.
-            self._replace(description=description, total=known_total, detail=detail, completed=done)
-            return
-        self.progress.update(  # type: ignore[union-attr]
-            self.task_id, completed=float(done), description=description, detail=detail
-        )
+        with self._lock:
+            if description != self._description:
+                # A new file (video, then audio) — start a fresh bar for it.
+                self._replace(
+                    description=description, total=known_total, detail=detail, completed=done
+                )
+                return
+            # An HLS total is an estimate that creeps up with every fragment, so it
+            # is adjusted in place; recreating the task here is what used to race.
+            # rich throws its ETA samples away whenever the total moves, so only a
+            # materially different figure is worth pushing.
+            drifted = known_total is not None and (
+                self._total is None or abs(known_total - self._total) > known_total * 0.01
+            )
+            if drifted:
+                self._total = known_total
+            self.progress.update(  # type: ignore[union-attr]
+                self.task_id,
+                completed=float(done),
+                total=known_total if drifted else None,
+                description=description,
+                detail=detail,
+            )
 
     def _replace(
         self,
@@ -132,6 +158,7 @@ class ItemView:
             description, total=total, completed=completed, detail=detail
         )
         self._total = total
+        self._description = description
 
 
 class Reporter:
