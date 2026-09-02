@@ -10,6 +10,7 @@ from .errors import UnsupportedURL
 
 INSTAGRAM = "instagram"
 YOUTUBE = "youtube"
+X = "x"
 
 _INSTAGRAM_HOSTS = {"instagram.com", "www.instagram.com", "m.instagram.com", "ddinstagram.com"}
 _YOUTUBE_HOSTS = {
@@ -19,6 +20,12 @@ _YOUTUBE_HOSTS = {
     "music.youtube.com",
     "youtu.be",
     "www.youtu.be",
+}
+_X_HOSTS = {
+    "x.com", "www.x.com", "mobile.x.com",
+    "twitter.com", "www.twitter.com", "mobile.twitter.com",
+    # Embed-fixer mirrors people paste from chat apps; same paths, same ids.
+    "fxtwitter.com", "vxtwitter.com", "fixupx.com",
 }
 
 # path prefix -> human label
@@ -44,7 +51,7 @@ class Target:
     """A supported URL, plus what we think it points at."""
 
     url: str          # normalised, tracking-free
-    platform: str     # INSTAGRAM | YOUTUBE
+    platform: str     # INSTAGRAM | YOUTUBE | X
     kind: str         # human label, e.g. "Instagram Reel"
     shortcode: str    # post/video id when we can read it from the path
 
@@ -59,7 +66,9 @@ class Target:
 
     @property
     def is_carousel_capable(self) -> bool:
-        """Instagram posts may hold several videos; Shorts never do."""
+        """Instagram posts and X posts may hold several videos; Shorts never do."""
+        if self.platform == X:
+            return True  # a post can carry up to four media items
         return self.platform == INSTAGRAM and self.kind in ("Instagram Post", "Instagram Video")
 
 
@@ -69,7 +78,8 @@ def detect(url: str) -> Target | None:
     if not url:
         return None
     if "://" not in url:
-        if not re.match(r"^(?:www\.)?(?:instagram\.com|youtube\.com|youtu\.be)/", url, re.I):
+        bare = r"^(?:www\.)?(?:instagram\.com|youtube\.com|youtu\.be|x\.com|twitter\.com)/"
+        if not re.match(bare, url, re.I):
             return None
         url = "https://" + url
 
@@ -82,6 +92,8 @@ def detect(url: str) -> Target | None:
         return _instagram(parsed)
     if host in _YOUTUBE_HOSTS:
         return _youtube(parsed)
+    if host in _X_HOSTS:
+        return _x(parsed)
     return None
 
 
@@ -90,8 +102,9 @@ def require(url: str) -> Target:
     target = detect(url)
     if target is None:
         raise UnsupportedURL(
-            f"Not an Instagram or YouTube link: {url}",
-            "Supported: instagram.com/reel|p|tv/…, youtube.com/shorts|watch, youtu.be/…",
+            f"Not an Instagram, YouTube or X link: {url}",
+            "Supported: instagram.com/reel|p|tv/…, youtube.com/shorts|watch, youtu.be/…, "
+            "x.com/<user>/status/…",
         )
     return target
 
@@ -188,4 +201,36 @@ def _yt_target(video_id: str, kind: str) -> Target | None:
         platform=YOUTUBE,
         kind=kind,
         shortcode=video_id,
+    )
+
+
+def _x(parsed) -> Target | None:
+    """x.com/<user>/status/<id>, plus the /i/web/, /statuses/ and mirror variants."""
+    parts = [p for p in parsed.path.split("/") if p]
+    if not parts:
+        return None
+
+    # /i/web/status/<id> carries no real handle; everything else is /<user>/status/<id>.
+    if parts[0].lower() == "i" and len(parts) > 1 and parts[1].lower() == "web":
+        parts = ["i", *parts[2:]]
+
+    user, marker, status_id = "", "", ""
+    if len(parts) >= 3 and parts[1].lower() in ("status", "statuses"):
+        user, marker, status_id = parts[0], parts[1].lower(), parts[2]
+    elif len(parts) >= 2 and parts[0].lower() == "statuses":
+        user, marker, status_id = "i", "statuses", parts[1]
+    if not marker:
+        return None
+
+    status_id = status_id.split("?")[0]
+    if not re.fullmatch(r"\d{5,25}", status_id):
+        return None
+
+    # Trailing /video/1 or /photo/2 just selects a slide; the post URL covers it.
+    handle = user if re.fullmatch(r"[A-Za-z0-9_]{1,15}", user) else "i"
+    return Target(
+        url=urlunparse(("https", "x.com", f"/{handle}/status/{status_id}", "", "", "")),
+        platform=X,
+        kind="X Post",
+        shortcode=status_id,
     )

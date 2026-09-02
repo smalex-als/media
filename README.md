@@ -1,8 +1,8 @@
 # media
 
-Download Instagram Reels and YouTube Shorts on macOS and get back a file that just
-works — H.264 + AAC in MP4, with a Finder thumbnail, Quick Look preview, QuickTime
-playback and clean metadata.
+Download Instagram Reels, YouTube Shorts and X videos on macOS and get back a file
+that just works — H.264 + AAC in MP4, with a Finder thumbnail, Quick Look preview,
+QuickTime playback and clean metadata.
 
 ```bash
 media https://www.instagram.com/reel/Dac9ebRiOCF/
@@ -19,8 +19,8 @@ no `ffmpeg` incantations.
 
 ## What it does
 
-1. Detects whether the URL is an Instagram Reel, Post, Carousel, YouTube Short or
-   regular YouTube video.
+1. Detects whether the URL is an Instagram Reel, Post, Carousel, YouTube Short,
+   regular YouTube video or X post.
 2. Downloads the highest quality streams with `yt-dlp` and merges video + audio.
 3. Runs `ffprobe` to read the real codec.
 4. If the video is VP9 or AV1, converts it to H.264 with Apple's hardware encoder
@@ -99,6 +99,22 @@ Several URLs on one command line work too:
 media https://youtube.com/shorts/aaa https://www.instagram.com/reel/bbb/
 ```
 
+### X (Twitter)
+
+```bash
+media https://x.com/AnatoliKopadze/status/2094789990710456378
+```
+
+`twitter.com`, `mobile.twitter.com` and the `vxtwitter`/`fxtwitter`/`fixupx` embed
+mirrors all work and normalise to the same `x.com` post, as do the `/i/web/status/`
+and `/statuses/` forms. A trailing `/video/1` just selects a slide in the web UI and
+is ignored. A post carrying several videos downloads all of them, the same way an
+Instagram carousel does.
+
+X titles come back as `Creator - caption`; the creator is dropped from the title so
+the default `{creator} - {title}` filename doesn't spell the name twice. A post with
+no video says so instead of failing obscurely.
+
 ### Carousels
 
 An Instagram post can hold several videos. Point at the post and every video in it
@@ -140,7 +156,7 @@ Builds `library.html` in your download folder and opens it: a grid of poster
 frames, with title, creator, date, resolution, codec and size read straight out
 of each file's own tags. Click any card to play it right there on the page;
 there's a search box and sorting by date, length, size, title or creator, plus a
-link back to the original Instagram/YouTube post.
+link back to the original post.
 
 ```bash
 media library ~/Downloads      # index some other folder
@@ -216,6 +232,7 @@ Platform titles are messy, so they get cleaned up:
 | `Video by John Smith [Dac9ebRiOCF].mp4` | `John Smith - Squat Tutorial.mp4` |
 | `johnsmith on Instagram: "Squat tutorial 🏋️ #gym #fitness"` | `John Smith - Squat tutorial.mp4` |
 | `How to squat properly #shorts [dQw4w9WgXcQ]` | `Fitness Channel - How to squat properly.mp4` |
+| `Anatoli Kopadze - Still the best 2 hours` (X) | `Anatoli Kopadze - Still the best 2 hours.mp4` |
 
 Trailing IDs, hashtag spam, `#shorts`, emoji (optional) and characters Finder
 dislikes are all removed; long captions are cut at a word boundary.

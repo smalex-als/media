@@ -44,7 +44,7 @@ app = typer.Typer(
     no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
     help=(
-        "Download Instagram Reels and YouTube Shorts as Finder-friendly H.264 MP4s.\n\n"
+        "Download Instagram Reels, YouTube Shorts and X videos as Finder-friendly H.264 MP4s.\n\n"
         "Run [bold]media <URL>[/bold], [bold]media urls.txt[/bold], or just "
         "[bold]media[/bold] to use the clipboard."
     ),
@@ -372,7 +372,7 @@ def _from_file(path: Path, reporter: Reporter) -> list[Target]:
     if not targets:
         raise MediaError(
             f"No supported URLs found in {path.name}.",
-            "Expected one Instagram or YouTube link per line.",
+            "Expected one Instagram, YouTube or X link per line.",
         )
     reporter.note(
         f"{len(targets)} URL(s) from {path.name}"
@@ -386,12 +386,12 @@ def _from_clipboard(reporter: Reporter) -> list[Target]:
     if not text.strip():
         reporter.warn("Nothing on the clipboard.")
         reporter.console.print(
-            "  [muted]Copy an Instagram or YouTube link, or run:  media <URL>[/muted]"
+            "  [muted]Copy an Instagram, YouTube or X link, or run:  media <URL>[/muted]"
         )
         return []
     found = find_supported(text)
     if not found:
-        reporter.warn("No Instagram or YouTube link on the clipboard.")
+        reporter.warn("No Instagram, YouTube or X link on the clipboard.")
         snippet = " ".join(text.split())[:70]
         if snippet:
             reporter.console.print(f"  [muted]Clipboard starts with: {snippet}…[/muted]")

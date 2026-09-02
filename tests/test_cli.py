@@ -60,7 +60,7 @@ def test_multiple_urls_are_deduplicated(captured):
 def test_unsupported_url_fails_with_a_clear_message(captured):
     result = runner.invoke(cli_module.app, ["https://vimeo.com/12345"])
     assert result.exit_code == 2
-    assert "Not an Instagram or YouTube link" in result.output
+    assert "Not an Instagram, YouTube or X link" in result.output
     assert captured == []
 
 
@@ -87,7 +87,7 @@ def test_clipboard_without_a_supported_link(monkeypatch, captured):
     monkeypatch.setattr(cli_module, "read_clipboard", lambda: "https://example.com/hello")
     result = runner.invoke(cli_module.app, [])
     assert result.exit_code == 1
-    assert "No Instagram or YouTube link" in result.output
+    assert "No Instagram, YouTube or X link" in result.output
 
 
 def test_batch_file_is_read_line_by_line(tmp_path, captured):

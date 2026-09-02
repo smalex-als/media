@@ -118,6 +118,16 @@ def test_no_video_formats_names_both_causes():
     assert "image" in (generic.hint or "").lower()
 
 
+def test_no_video_formats_on_x_points_at_text_only_posts():
+    raw = "ERROR: [twitter] 1234567890123456789: No video formats found!"
+    post = errors.classify_download_error(raw, "x")
+
+    assert isinstance(post, errors.NoVideoFound)
+    assert "X post" in post.message
+    hint = (post.hint or "").lower()
+    assert "text" in hint and "cookies_from_browser" in hint
+
+
 def test_classification_strips_noise():
     error = errors.classify_download_error(
         "\x1b[0;31mERROR:\x1b[0m [generic] test: weird failure; please report this issue on ..."

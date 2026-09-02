@@ -137,6 +137,12 @@ def classify_download_error(raw: str, platform: str = "") -> MediaError:
                 "Usually an image in a carousel. If it should be a video, it may need "
                 "a logged-in session — " + _COOKIE_HINT,
             )
+        if platform == "x":
+            return NoVideoFound(
+                "That X post has no playable video.",
+                "Text-and-image posts have nothing to download. If it does show a video, "
+                "it may be age-restricted or protected — " + _COOKIE_HINT,
+            )
         return NoVideoFound(
             "No playable video streams were offered for that URL.",
             "The post may be image-only, or the streams need a logged-in session.",

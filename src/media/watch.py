@@ -32,7 +32,7 @@ def watch(cfg: Config, reporter: Reporter, destination: Path | None = None) -> R
     reporter.console.print(
         f"[stage]Watching the clipboard[/stage] [muted]→ {folder}[/muted]"
     )
-    reporter.console.print("[muted]Copy an Instagram or YouTube link. Ctrl-C to stop.[/muted]\n")
+    reporter.console.print("[muted]Copy an Instagram, YouTube or X link. Ctrl-C to stop.[/muted]\n")
     if seen:
         reporter.note(f"Ignoring {len(seen)} link(s) already on the clipboard.")
 

@@ -105,6 +105,10 @@ def clean_title(raw: str | None, *, creator: str = "", video_id: str = "") -> st
     if match:
         title = match.group("caption").strip()
 
+    # X hands back "Creator - caption"; the filename template adds the creator
+    # itself, so leaving it here spells the name twice.
+    title = _drop_creator_prefix(title, creator)
+
     title = _TRAILING_HASHTAGS.sub("", title).strip()
     title = re.sub(r"\s*#shorts\b", "", title, flags=re.IGNORECASE).strip()
     title = re.sub(r"\s*\|\s*(?:instagram|youtube|shorts)\s*$", "", title, flags=re.IGNORECASE)
@@ -129,6 +133,16 @@ def clean_title(raw: str | None, *, creator: str = "", video_id: str = "") -> st
     if creator and title.strip().lower() == creator.strip().lower():
         return ""
     return title.strip()
+
+
+def _drop_creator_prefix(title: str, creator: str) -> str:
+    """Remove a leading "Creator - " / "Creator: " from a title."""
+    if not creator or not title:
+        return title
+    pattern = rf"^{re.escape(creator.strip())}\s*[-–—:|]\s*"
+    # An empty result means the title was nothing but the creator's name, which
+    # is no title at all — the caller falls back to the creator on its own.
+    return re.sub(pattern, "", title, count=1, flags=re.IGNORECASE).strip()
 
 
 def clean_creator(info: dict) -> str:

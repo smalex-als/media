@@ -104,3 +104,35 @@ def test_unique_path_avoids_clobbering(tmp_path):
     assert naming.unique_path(first) == first
     first.write_text("x")
     assert naming.unique_path(first).name == "video (2).mp4"
+
+
+def test_creator_prefix_is_dropped_from_x_titles():
+    """X titles arrive as "Creator - caption"; the template adds the creator itself."""
+    assert naming.clean_title(
+        "Anatoli Kopadze - Still the best 2 hours ever recorded", creator="Anatoli Kopadze"
+    ) == "Still the best 2 hours ever recorded"
+    assert naming.clean_title("CentrFit: A little training sesh", creator="CentrFit") == \
+        "A little training sesh"
+
+
+def test_creator_prefix_needs_a_real_separator():
+    """"Fit" must not eat the start of "Fitness tips"."""
+    assert naming.clean_title("Fitness tips for beginners", creator="Fit") == \
+        "Fitness tips for beginners"
+
+
+def test_a_title_that_is_only_the_creator_name_is_dropped():
+    assert naming.clean_title("Bob - ", creator="Bob") == ""
+    assert naming.clean_title("Bob", creator="Bob") == ""
+
+
+def test_x_post_filename_does_not_repeat_the_creator():
+    info = {
+        "uploader": "Anatoli Kopadze",
+        "title": "Anatoli Kopadze - Still the best 2 hours ever recorded",
+        "id": "2094789990710456378",
+        "upload_date": "20260901",
+    }
+    stem = naming.build_stem(info, template="{creator} - {title}", platform="x")
+
+    assert stem == "Anatoli Kopadze - Still the best 2 hours ever recorded"
